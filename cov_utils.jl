@@ -13,7 +13,7 @@ Returns
 -------
 res : :class:Matrix
     The residual component of spec, size (num_wavelengths, n)
-μskyA : :class:Matrix
+μsky : :class:Matrix
     The residual component of spec, size (num_wavelengths, n
 """
 function apply_Csky_no_split(spec, Csky, Cres)

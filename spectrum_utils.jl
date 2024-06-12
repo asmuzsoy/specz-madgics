@@ -5,7 +5,7 @@ Parameters
 spec : :class:Matrix
     spectra in linearly spaced wavelength bins
 wave : :class:Vector
-    corresponding linearly spaced wavelength bins
+    corresponding linearly spaced wavelength bins (must be equal sized bins)
 real_log_range : :class:Vector
     desired log spaced wavelength bins
 kernel_size : :class:Int
@@ -163,4 +163,20 @@ function filter_nanvar(spec; nanvar_threshold = 10^-1, zero_out_nans = true)
         nan_to_zero(filtered_spec)
     end
     return filtered_spec
+end
+
+"""Returns the index of the array closest to the given value
+
+Parameters
+----------
+array : :class:Vector
+    array to get closest index of
+value : :class:float
+    value that we want to find the closest index of array to
+Returns
+-------
+index of closest value in array (int)
+"""
+function get_closest_index(value, array)
+    return partialsortperm(abs.(array .- value), 1)
 end
