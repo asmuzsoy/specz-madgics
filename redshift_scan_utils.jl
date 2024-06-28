@@ -57,14 +57,14 @@ min_chisqs : :class:vector
 new_zs : :class:vector
     Vector of best-fit redshifts for each spectrum, size (num_spectra,)
 """
-function scan(spec, padded_Vmat, wave_range, z_to_test)
+function scan(spec, padded_Vmat, wave_range, Cinv, z_to_test)
     small_Cinv = Cinv[wave_range, wave_range]
 
     numspec = size(spec)[2]
 
     chisq = zeros(length(z_to_test), numspec)
 
-    log_spec[isnan.(log_spec)] .= 0
+    spec[isnan.(spec)] .= 0
     
     # just zero out the data and Vmat
     @time begin
@@ -89,4 +89,51 @@ function scan(spec, padded_Vmat, wave_range, z_to_test)
     end
     
     return chisq, min_chisqs, new_zs
+end
+
+"""Turns an array of pixel offsets into an array of redshifts given a pixel spacing, assuming 0 pixel offset is z=2.45. This method is modified from apMADGICS.jl.
+
+Parameters
+----------
+pix : :class:vector
+    array of pixel offsets
+delLog : :class:float
+    pixel spacing between log wavelength bins
+
+Returns
+-------
+z : :class:vector
+    Vector of redshifts
+"""
+function get_z_from_pixels(pix; delLog = 0.5e-4)
+    pix_offset = 10756.381901465484 # assuming we're shifting everything to z = 2.45
+    z = 10^((pix_offset + pix)*delLog)-1 
+    return z
+end
+
+"""Turns an array of pixel offsets into an array of redshifts given a pixel spacing, assuming 0 pixel offset is z=2.45. This method is modified from apMADGICS.jl.
+
+Parameters
+----------
+pix : :class:vector
+    array of pixel offsets
+delLog : :class:float
+    pixel spacing between log wavelength bins
+
+Returns
+-------
+z : :class:vector
+    Vector of redshifts
+"""
+function plot_chisq_vs_correctness(true_zs, new_zs, min_chisqs)
+    p = plot((new_zs .- true_zs), 
+    abs.(min_chisqs), 
+    seriestype=:scatter, yscale=:log10, alpha=0.1, 
+    ylabel=L"|\Delta \chi^2|",
+    xlabel="New z - VI z")
+    return p
+end
+
+function calculate_accuracy(true_zs, new_zs; threshold=0.01)
+    return sum(abs.(new_zs_no_sky .- true_zs) .< threshold) / length(true_zs)
 end
