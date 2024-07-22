@@ -135,5 +135,5 @@ function plot_chisq_vs_correctness(true_zs, new_zs, min_chisqs)
 end
 
 function calculate_accuracy(true_zs, new_zs; threshold=0.01)
-    return sum(abs.(new_zs_no_sky .- true_zs) .< threshold) / length(true_zs)
+    return sum(abs.(new_zs .- true_zs) .< threshold) / length(true_zs)
 end

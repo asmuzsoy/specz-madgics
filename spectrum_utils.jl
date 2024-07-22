@@ -1,3 +1,6 @@
+const delLog = 0.5e-4
+
+
 """Function that converts linearly spaced spectra to log spaced
 
 Parameters
