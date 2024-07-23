@@ -183,3 +183,29 @@ index of closest value in array (int)
 function get_closest_index(value, array)
     return partialsortperm(abs.(array .- value), 1)
 end
+
+function separate_components(spectrum, redshift, Csky, Cres, Vlae; wave_range = 1:length(spectrum), linear = false)
+    adjV, _  = adjust_V(padded_Vmat, redshift)[1];
+    temp_Clae = adjV * adjV';
+    temp_Csky = Csky[wave_range, wave_range]
+    temp_Cres = Cres[wave_range, wave_range];
+    temp_Ctotinv = inv(temp_Clae + temp_Csky + temp_Cres);
+
+    sky = temp_Csky * temp_Ctotinv * log_spec[wave_range, index]
+    res = temp_Cres * temp_Ctotinv * log_spec[wave_range, index]
+    lae = temp_Clae * temp_Ctotinv * log_spec[wave_range, index];
+    
+    if !linear
+       p = plot(log_wave_range[wave_range],  [i for i in [sky, lae, res, log_spec[wave_range, index]]], layout = (4, 1),  title=["sky" "LAE" "residual" "total"], 
+    legend=:none, xlabel = ["" "" "" "log(wavelength (Å))"], 
+    ylabel="Flux",size=(600,500)) 
+        return p
+    end
+    linear_range = 3800:800:8000
+    wavelength_ticks = log10.(linear_range)
+    tick_labels = string.(linear_range)
+    p = plot(log_wave_range[wave_range],  [i .* sqrt_sky_poly[wave_range] for i in [sky, lae, res, log_spec[wave_range, index]]], layout = (4, 1),  title=["sky residual" "LAE" "residual" "total"], 
+        legend=:none, xlabel = ["" "" "" "Wavelength (Å)"], 
+        ylabel="Flux",size=(600,500), xticks=(wavelength_ticks, tick_labels), xtickfontsize=12, labelfontsize=16)
+    return p
+end
