@@ -34,6 +34,27 @@ function linear_to_log(spec, wave; real_log_range = log_wave_range, kernelsize =
     return log_binned_spectrum
 end
 
+"""Function that converts linearly spaced spectra to log spaced with cubic spline interpolation
+
+Parameters
+----------
+spec : :class:Matrix
+    spectra in linearly spaced wavelength bins
+wave : :class:Vector
+    corresponding linearly spaced wavelength bins (must be equal sized bins)
+real_log_range : :class:Vector
+    desired log spaced wavelength bins
+Returns
+-------
+Log spaced spectrum (flux values)
+"""
+function linear_to_log_cubic(spec, wave, log_wave_range)
+    interp_cubic = Interpolations.cubic_spline_interpolation(wave, spec, extrapolation_bc = Line())
+
+    return interp_cubic(10 .^ log_wave_range)
+end
+
+
 """Get wavelength of Lyman alpha line in Angstroms
 
 Parameters
