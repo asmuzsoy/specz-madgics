@@ -118,57 +118,103 @@ min_chisqs : :class:vector
 new_zs : :class:vector
     Vector of best-fit redshifts for each spectrum, size (num_spectra,)
 """
-function scan_target_Cres(spec, ivar, padded_Vmat, wave_range, Vsky, z_to_test)
+function scan_target_Cres(spec, ivar, padded_Vmat, Vsky, z_to_test; 
+        wave_range = 1:length(log_wave_range), fine_scan = true)
     numspec = size(spec)[2]
     num_wave_bins = length(wave_range)
     chisq = zeros(length(z_to_test), numspec)
     spec[isnan.(spec)] .= 0
-    M_length = num_sky_eigs + 1
+    M_length = num_sky_eigs + num_lae_eigs
     target_variances = 1 ./ ivar
-    
-    W = zeros(num_wave_bins, M_length)
-    W[:, 1:num_sky_eigs] = Vsky
+    num_z = length(z_to_test)
+    new_zs = zeros(numspec)
+    min_chisqs = zeros(numspec)
+    z_uncertainties = zeros(numspec)
+    # W = zeros(num_wave_bins, M_length)
+    # W[:, 1:num_sky_eigs] = Vsky
+    # W = hcat(Vsky, Vlae) # preallocate this
+    # AinvW = hcat(AinvV, Cresinv * Vlae)
     AinvW = zeros(num_wave_bins, M_length)
-
+    # wave_range = 1:length(log_wave_range)
+    WtAinvD = zeros(M_length)
+    sky_length = M_length - num_lae_eigs + 1
+    Vsky = Vsky[wave_range, :]
+    num_fine_in_pixel = 10
+    p = plot()
     @showprogress for j in 1:numspec
+    # @showprogress for j in 1:1
         Cresinv = inv(Diagonal(target_variances[wave_range,j]))
         d = spec[wave_range, j]
-        AinvV = Cresinv * Vsky
+        AinvV = Cresinv * Vsky[wave_range,:]
         AinvW[:,1:num_sky_eigs] = AinvV
         M = zeros(M_length, M_length)
-        M[1:num_sky_eigs, 1:num_sky_eigs] = (I + (Vsky' * AinvV))
+        M[1:num_sky_eigs, 1:num_sky_eigs] = (I + (Vsky' * AinvV)) # M = I + (W' * AinvW)
         # M = (I + (Vsky' * AinvV))
-        VtAinvD = AinvV' * d # V' Ainv' D
-        chisq1 = VtAinvD' * (M[1:num_sky_eigs, 1:num_sky_eigs] \ VtAinvD)
-        for (i, z) in enumerate(z_to_test)
-            # Vlae, _ = adjust_V(padded_Vmat, z)
-            Vlae = shifted_lae_templates[:,i]
-            # W = hcat(Vsky, Vlae) # preallocate this
-            W[:,end] = Vlae
-            # AinvW = hcat(AinvV, Cresinv * Vlae)
-            AinvW[:,end] = Cresinv * Vlae
-            # M2 = @time I + (W' * AinvW)
-            cross_mat = (Vsky' * Cresinv * Vlae)
-            M[end,1:num_sky_eigs] = cross_mat
-            M[1:num_sky_eigs, end] = cross_mat'
-            M[end, end] = (Vlae' * Cresinv * Vlae)[1,1]
-            WtAinvD = AinvW' * d # V' Ainv' D
-            chisq2 = WtAinvD' * (M \ WtAinvD)
-            chisq[i,j] = chisq1 - chisq2
+        # VtAinvD = AinvV' * d # V' Ainv' D
+        WtAinvD[1:num_sky_eigs] = AinvV' * d 
+        # chisq1 = VtAinvD' * (M[1:num_sky_eigs, 1:num_sky_eigs] \ VtAinvD)
+        chisq1 = WtAinvD[1:num_sky_eigs]' * (M[1:num_sky_eigs, 1:num_sky_eigs] \ WtAinvD[1:num_sky_eigs])
+        # for (i, z) in enumerate(z_to_test) # course
+        for i in 1:num_z
+        # for i in 1:1
+            Vlae = shifted_lae_templates[wave_range,:,i] # the rest of this template is zero
+                       
+            AinvVlae = Cresinv * Vlae # 8 μs
+            AinvW[:,sky_length:M_length] = AinvVlae # 9 μs
+            cross_mat = (Vsky' * AinvVlae) # (Vsky' * Cresinv * Vlae) # 145 μs
+            M[sky_length:M_length,1:num_sky_eigs] = cross_mat' # 7 μs
+            M[1:num_sky_eigs, sky_length:M_length] = cross_mat # 3 μs
+            M[sky_length:M_length, sky_length:M_length] = (I + (Vlae' * AinvVlae)) # (I + (Vlae' * Cresinv * Vlae)) # 23 μs
+            
+            # @time WtAinvD = AinvW' * d # V' Ainv' D
+            WtAinvD[sky_length:M_length] = AinvVlae' * d # 5 μs 
+            chisq2 = WtAinvD' * (M \ WtAinvD) # A \ B = inv(A) * B # 29 μs
+            chisq[i,j] = chisq1 - chisq2 # 6 μs
+        end
+        if fine_scan
+            min_chisq, best_index = findmin(chisq[:,j])
+            # println(best_index, " ", z_to_test[best_index])
+            fine_index = (best_index - 1) * num_fine_in_pixel + 1
+            new_chisqs = zeros(4*num_fine_in_pixel + 1)
+            min_index = max(fine_index - 2*num_fine_in_pixel, 1)
+            max_index = min(fine_index + 2*num_fine_in_pixel, 45001)
+            # fine scan
+            for (k, z) in enumerate(fine_z_to_test[min_index:max_index])
+                Vlae = fine_shifted_lae_templates[wave_range,:,(min_index + k - 1)] # the rest of this template is zero
+
+                AinvVlae = Cresinv * Vlae # 8 μs
+                AinvW[:,sky_length:M_length] = AinvVlae # 9 μs
+                cross_mat = (Vsky' * AinvVlae) # (Vsky' * Cresinv * Vlae) # 145 μs
+                M[sky_length:M_length,1:num_sky_eigs] = cross_mat' # 7 μs
+                M[1:num_sky_eigs, sky_length:M_length] = cross_mat # 3 μs
+                M[sky_length:M_length, sky_length:M_length] = (I + (Vlae' * AinvVlae)) # (I + (Vlae' * Cresinv * Vlae)) # 23 μs
+
+                # @time WtAinvD = AinvW' * d # V' Ainv' D
+                WtAinvD[sky_length:M_length] = AinvVlae' * d # 5 μs 
+                chisq2 = WtAinvD' * (M \ WtAinvD) # A \ B = inv(A) * B # 29 μs
+                new_chisqs[k] = chisq1 - chisq2
+            end
+            # println(new_chisqs)
+            plot!(p, new_chisqs)
+            min_chisqs[j], best_index = findmin(new_chisqs)
+            z_uncertainties[j] = get_z_unc(new_chisqs, best_index, pixel_scan_range=fine_pixel_scan_range[min_index:max_index])
+            new_zs[j] = (fine_z_to_test[min_index:max_index])[best_index]
+            
+        else
+            min_chisqs, min_chisq_indexes = findmin(chisq, dims=1)
+            min_chisqs = reshape(collect(min_chisqs), numspec);
+
+            new_zs = zeros(numspec)
+
+            for (i, index_pair) in enumerate(min_chisq_indexes)
+                z_index = index_pair[1]
+                new_zs[i] = z_to_test[z_index]
+            end
+    
         end
     end
-    
-    min_chisqs, min_chisq_indexes = findmin(chisq, dims=1)
-    min_chisqs = reshape(collect(min_chisqs), numspec);
-    
-    new_zs = zeros(numspec)
 
-    for (i, index_pair) in enumerate(min_chisq_indexes)
-        z_index = index_pair[1]
-        new_zs[i] = z_to_test[z_index]
-    end
-    
-    return chisq, min_chisqs, new_zs
+    return chisq, min_chisqs, new_zs, z_uncertainties, p
 end
 
 """Turns an array of pixel offsets into an array of redshifts given a pixel spacing, assuming 0 pixel offset is z=2.45. This method is modified from apMADGICS.jl.
@@ -217,3 +263,38 @@ end
 function calculate_accuracy(true_zs, new_zs; threshold=0.01)
     return sum(abs.(new_zs .- true_zs) .< threshold) / length(true_zs)
 end
+
+function err1d(vrng,chi2,minind;stepx=3)
+    lval = length(vrng)
+    subgrid = minind .+ (-stepx:stepx)
+    if (subgrid[1] < 1) | (lval < subgrid[end])
+        return NaN
+    else
+        c1, c2, c3 = chi2[subgrid]
+        # println(c1, c2, c3)
+        x1, x2, x3 = vrng[subgrid]
+        dx = (x2-x1)
+        # print(dx, " ", (x3-x2))
+        if !((x3-x2) ≈ dx)
+            @warn "Non uniform grid error estimates not implemented"
+        end
+        # println(dx, (c1-2*c2+c3))
+        return (dx^2)/(c1-2*c2+c3)
+    end
+end
+
+function prop_p2z(p; delLog=delLog)
+    return delLog*log(10)*10^(p*delLog) 
+end
+
+function get_z_unc(chisq_surface, min_index; pixel_scan_range = pixel_scan_range)
+    pixel_var = err1d(pixel_scan_range, chisq_surface, min_index, stepx=5)
+    # println(pixel_var)
+    if pixel_var > 0
+        zerr = prop_p2z(pixel_scan_range[min_index], delLog=delLog).*sqrt(pixel_var)
+        return zerr
+    end
+    return NaN
+end
+
+    
