@@ -17,7 +17,7 @@ res : :class:Matrix
     The residual component of spec, size (num_wavelengths, n
 """
 function apply_Csky_no_split(spec, Csky, Cres)
-    Ctotinv = inv(cholesky((Csky + Cres)))
+    Ctotinv = inv((Csky + Cres))
 
     # infer the sky and residual components
     μsky = (Csky * Ctotinv) * spec

@@ -119,7 +119,7 @@ Returns
 Log spaced spectrum (flux values)
 """
 
-function linear_to_log(spec, wave; real_log_range = log_wave_range, kernelsize = 4)
+function linear_to_log(spec, wave, log_wave_range, kernelsize = 4)
 #     itp = Interpolations.interpolate(spec, Interpolations.Lanczos(kernelsize))
 #     etp = Interpolations.extrapolate(itp, 0) # fill value is zero
 
@@ -344,6 +344,7 @@ end
 
 function get_snr(noisy_spectrum, z)
     lya_wave = log10(get_wavelength(z)) 
+    
     cutoff1 = lya_wave - 0.02
     cutoff2 = lya_wave + 0.03
     index1 = get_wave_index(cutoff1) # take noise of spectrum far from lya line
@@ -352,9 +353,37 @@ function get_snr(noisy_spectrum, z)
     sigma = std(spectrum_except_lya)
     lya_start = get_wave_index(lya_wave - 0.0015)
     lya_end = get_wave_index(lya_wave + 0.0015)
-
     signal = sum(noisy_spectrum[lya_start:lya_end])
     noise = sqrt(lya_end - lya_start) .* sigma
 
     return signal / noise
+end
+
+# function get_snr(noisy_spectrum, z)
+#     lya_wave = log10(get_wavelength(z)) 
+#     cutoff1 = lya_wave - 0.02
+#     cutoff2 = lya_wave + 0.03
+#     index1 = get_wave_index(cutoff1) # take noise of spectrum far from lya line
+#     index2 = get_wave_index(cutoff2)
+#     spectrum_except_lya = vcat(noisy_spectrum[1:index1], noisy_spectrum[index2:end])
+#     sigma = std(spectrum_except_lya)
+#     lya_start = get_wave_index(lya_wave - 0.0015)
+#     lya_end = get_wave_index(lya_wave + 0.0015)
+#     signal = sum(noisy_spectrum[lya_start:lya_end])
+#     noise = sqrt(lya_end - lya_start) .* sigma
+
+#     return signal / noise
+# end
+
+function widen_mask(mask; width = 2)
+    new_mask = copy(mask)
+    for i in (width + 1):(length(mask) - width - 1)
+        if mask[i]
+            for j in 1:width
+                new_mask[i - j] = mask[i]
+                new_mask[i + j] = mask[i]
+            end
+        end
+    end     
+    return new_mask
 end
