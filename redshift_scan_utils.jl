@@ -410,16 +410,16 @@ function scan_target_Cres_turbo(spec, ivar, shifted_lae_templates, fine_shifted_
     num_wave_bins = length(wave_range)
     chisq = zeros(length(z_to_test), numspec)
     spec[isnan.(spec)] .= 0
-    M_length = num_sky_eigs + num_lae_eigs
+    # M_length = num_sky_eigs + num_lae_eigs
     # target_variances = 1 ./ ivar # update this
     num_z = length(z_to_test)
     new_zs = zeros(numspec)
     min_chisqs = zeros(numspec)
     z_uncertainties = zeros(numspec)
-    AinvW = zeros(num_wave_bins, M_length)
+    # AinvW = zeros(num_wave_bins, M_length)
     # wave_range = 1:length(log_wave_range)
-    WtAinvD = zeros(M_length)
-    sky_length = M_length - num_lae_eigs + 1
+    # WtAinvD = zeros(M_length)
+    # sky_length = M_length - num_lae_eigs + 1
     Vsky = Vsky[wave_range, :]
     num_fine_in_pixel = 10
     @showprogress for j in 1:numspec
@@ -470,6 +470,7 @@ function scan_target_Cres_turbo(spec, ivar, shifted_lae_templates, fine_shifted_
             end
             # println(new_chisqs)
             min_chisqs[j], best_index = findmin(new_chisqs)
+            # Divide by 2 to go from chisq to log-likelihood
             z_uncertainties[j] = get_z_unc(new_chisqs ./ 2, best_index, pixel_scan_range=fine_pixel_scan_range[min_index:max_index])
             try
                 new_zs[j] = (fine_z_to_test[min_index:max_index])[best_index]
