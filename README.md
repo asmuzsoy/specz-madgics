@@ -1,2 +1,2 @@
 # specz-madgics
-Component separation for automated spectroscopic redshift determination
+Code used in Uzsoy et al. (2025), "Bayesian Component Separation for Automated Spectroscopic Redshifts and Photometric Targeting" [(arxiv link)](https://arxiv.org/abs/2504.06870). Note that the DESI data is proprietary so I cannot share all of the code used in this paper, but this is a repository of generalized methods that I used in the analysis. Data to reproduce all figures can be found on Zenodo [here](https://zenodo.org/records/15181204).
